@@ -39,6 +39,7 @@ contract CredentialRegistry is IAccessAdapter {
         uint64 expiry
     );
     event Revoked(address indexed account, bytes32 indexed role, bytes32 uid, address indexed issuer);
+    event Renewed(address indexed account, bytes32 indexed role, bytes32 uid, address indexed issuer, uint64 expiry);
 
     error NotIssuer();
     error BadExpiry();
@@ -93,6 +94,21 @@ contract CredentialRegistry is IAccessAdapter {
         for (uint256 i; i < count; ++i) {
             uids[i] = _store(accounts[i], role, jurisdictionClasses[i], investorClasses[i], expiry);
         }
+    }
+
+    /// @notice Push back the expiry of an existing credential without issuing a new one. The uid, jurisdiction
+    ///         and investor class stay as they are, so anything keyed on the uid off chain keeps working through
+    ///         a periodic re-screening. The renewing issuer becomes the issuer of record, since it is the one now
+    ///         vouching for the account.
+    /// @dev Works on a lapsed entry as well as a live one, but not on a revoked one; a revoked credential has to
+    ///      be issued again with `attest`. The new expiry has to be later than the current block.
+    function renew(address account, bytes32 role, uint64 expiry) external onlyIssuer {
+        Attestation storage entry = _credentials[account][role];
+        if (entry.uid == bytes32(0) || entry.revoked) revert NoActiveRecord();
+        if (expiry <= block.timestamp) revert BadExpiry();
+        entry.issuer = msg.sender;
+        entry.expiry = expiry;
+        emit Renewed(account, role, entry.uid, msg.sender, expiry);
     }
 
     /*//////////////////////////////////////////////////////////////
