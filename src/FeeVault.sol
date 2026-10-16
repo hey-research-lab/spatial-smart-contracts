@@ -19,6 +19,7 @@ contract FeeVault {
 
     error NotGovernance();
     error ZeroRecipient();
+    error LengthMismatch();
 
     constructor(IRiskConfig riskConfig_) {
         riskConfig = riskConfig_;
@@ -29,8 +30,34 @@ contract FeeVault {
     ///         funds. Supplying `type(uint256).max` as the amount sends the entire balance, which is handy for
     ///         governance proposals drafted ahead of execution, when the final fee total is not yet known.
     function withdraw(IERC20 token, address to, uint256 amount) external {
-        if (msg.sender != riskConfig.owner()) revert NotGovernance();
+        _onlyGovernance();
         if (to == address(0)) revert ZeroRecipient();
+        _payout(token, to, amount);
+    }
+
+    /// @notice Batch version of `withdraw` that sweeps several tokens to one recipient in a single call, so a
+    ///         treasury proposal does not need one action per fee token. `tokens` and `amounts` are paired by
+    ///         index, and `type(uint256).max` again means the full balance of that token.
+    function withdrawMany(IERC20[] calldata tokens, address to, uint256[] calldata amounts) external {
+        _onlyGovernance();
+        if (to == address(0)) revert ZeroRecipient();
+        uint256 count = tokens.length;
+        if (amounts.length != count) revert LengthMismatch();
+        for (uint256 i; i < count; ++i) {
+            _payout(tokens[i], to, amounts[i]);
+        }
+    }
+
+    /// @notice Balance of `token` currently held here, for dashboards and proposal tooling.
+    function balanceOf(IERC20 token) external view returns (uint256) {
+        return token.balanceOf(address(this));
+    }
+
+    function _onlyGovernance() private view {
+        if (msg.sender != riskConfig.owner()) revert NotGovernance();
+    }
+
+    function _payout(IERC20 token, address to, uint256 amount) private {
         uint256 payout = amount == type(uint256).max ? token.balanceOf(address(this)) : amount;
         token.safeTransfer(to, payout);
         emit Withdrawn(address(token), to, payout);
