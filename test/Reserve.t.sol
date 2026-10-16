@@ -154,4 +154,29 @@ contract ReserveTest is BaseTest {
         assertGt(usdg.balanceOf(lender1) - walletBefore, 20_000e6, "wallet should receive principal and interest");
         assertEq(uint8(hub.getLoan(loanId).status), uint8(LoanTypes.LoanStatus.Repaid));
     }
+
+    function test_totalAssetsSumsEveryLender() public {
+        vm.prank(lender1);
+        idle.deposit(10_000e6);
+        vm.prank(lender2);
+        usdg.approve(address(idle), type(uint256).max);
+        vm.prank(lender2);
+        idle.deposit(5_000e6);
+
+        assertEq(idle.totalAssets(), 15_000e6);
+        usdg.mint(address(vault), 150e6);
+        assertApproxEqAbs(idle.totalAssets(), idle.balanceOf(lender1) + idle.balanceOf(lender2), 1);
+    }
+
+    function test_maxWithdrawMatchesPositionWhenVaultIsLiquid() public {
+        vm.prank(lender1);
+        idle.deposit(10_000e6);
+        assertEq(idle.maxWithdraw(lender1), 10_000e6);
+        assertEq(idle.maxWithdraw(lender2), 0);
+
+        uint256 max = idle.maxWithdraw(lender1);
+        vm.prank(lender1);
+        idle.withdraw(max, lender1);
+        assertEq(idle.balanceOf(lender1), 0);
+    }
 }

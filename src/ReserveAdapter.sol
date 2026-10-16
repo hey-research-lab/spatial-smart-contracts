@@ -95,6 +95,21 @@ contract ReserveAdapter is IReserveAdapter, ReentrancyGuard {
         return vault_.convertToAssets(shares[lender]);
     }
 
+    /// @notice Value of every share this adapter holds in the vault, which is the sum of all lender positions
+    ///         give or take rounding.
+    function totalAssets() external view returns (uint256) {
+        return vault_.convertToAssets(vault_.balanceOf(address(this)));
+    }
+
+    /// @notice Largest amount `lender` can take out right now with `withdraw`. This is the smaller of their
+    ///         position and what the vault itself is willing to release, so it can be lower than `balanceOf`
+    ///         when the vault is short on liquidity.
+    function maxWithdraw(address lender) external view returns (uint256) {
+        uint256 owned = vault_.convertToAssets(shares[lender]);
+        uint256 available = vault_.maxWithdraw(address(this));
+        return owned < available ? owned : available;
+    }
+
     /*//////////////////////////////////////////////////////////////
                              LENDER ACTIONS
     //////////////////////////////////////////////////////////////*/
