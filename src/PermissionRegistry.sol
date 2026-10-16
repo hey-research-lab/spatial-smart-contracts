@@ -56,6 +56,18 @@ contract PermissionRegistry is IPermissionRegistry {
         return source.isEligible(account, Permissions.LENDER_RETAIL);
     }
 
+    /// @notice Checks several roles for one account in a single call, resolving the adapter only once. Meant
+    ///         for front ends that need to know everything an account is cleared for when it connects.
+    /// @return eligible One flag per entry in `roles`, in the same order.
+    function rolesOf(address account, bytes32[] calldata roles) external view returns (bool[] memory eligible) {
+        IAccessAdapter source = adapter();
+        uint256 count = roles.length;
+        eligible = new bool[](count);
+        for (uint256 i; i < count; ++i) {
+            eligible[i] = source.isEligible(account, roles[i]);
+        }
+    }
+
     /// @inheritdoc IPermissionRegistry
     function attestationOf(address account, bytes32 role) external view override returns (bytes32 uid, uint64 expiry) {
         return adapter().attestationOf(account, role);
