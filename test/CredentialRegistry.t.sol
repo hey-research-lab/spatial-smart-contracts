@@ -53,4 +53,34 @@ contract CredentialRegistryTest is BaseTest {
         vm.expectRevert(CredentialRegistry.NotIssuer.selector);
         credentials.renew(borrower, Permissions.BORROWER, uint64(block.timestamp + 730 days));
     }
+
+    function test_renewManyExtendsEachAccount() public {
+        address[] memory accounts = new address[](2);
+        accounts[0] = lender1;
+        accounts[1] = lender2;
+        uint64 newExpiry = uint64(block.timestamp + 730 days);
+
+        vm.prank(issuer);
+        credentials.renewMany(accounts, Permissions.LENDER_PROFESSIONAL, newExpiry);
+
+        assertEq(credentials.attestation(lender1, Permissions.LENDER_PROFESSIONAL).expiry, newExpiry);
+        assertEq(credentials.attestation(lender2, Permissions.LENDER_PROFESSIONAL).expiry, newExpiry);
+        assertEq(
+            credentials.attestation(lender3, Permissions.LENDER_PROFESSIONAL).expiry,
+            uint64(block.timestamp + 365 days),
+            "a lender left out of the batch keeps its old expiry"
+        );
+    }
+
+    function test_renewManyRevertsIfAnyAccountHasNoRecord() public {
+        address[] memory accounts = new address[](2);
+        accounts[0] = lender1;
+        accounts[1] = makeAddr("nobody");
+        uint64 before = credentials.attestation(lender1, Permissions.LENDER_PROFESSIONAL).expiry;
+
+        vm.prank(issuer);
+        vm.expectRevert(CredentialRegistry.NoActiveRecord.selector);
+        credentials.renewMany(accounts, Permissions.LENDER_PROFESSIONAL, uint64(block.timestamp + 730 days));
+        assertEq(credentials.attestation(lender1, Permissions.LENDER_PROFESSIONAL).expiry, before);
+    }
 }

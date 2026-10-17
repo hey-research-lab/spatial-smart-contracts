@@ -103,12 +103,17 @@ contract CredentialRegistry is IAccessAdapter {
     /// @dev Works on a lapsed entry as well as a live one, but not on a revoked one; a revoked credential has to
     ///      be issued again with `attest`. The new expiry has to be later than the current block.
     function renew(address account, bytes32 role, uint64 expiry) external onlyIssuer {
-        Attestation storage entry = _credentials[account][role];
-        if (entry.uid == bytes32(0) || entry.revoked) revert NoActiveRecord();
-        if (expiry <= block.timestamp) revert BadExpiry();
-        entry.issuer = msg.sender;
-        entry.expiry = expiry;
-        emit Renewed(account, role, entry.uid, msg.sender, expiry);
+        _renew(account, role, expiry);
+    }
+
+    /// @notice Bulk version of `renew` for a cohort that shares one role and one new expiry, such as everyone
+    ///         who passed the same annual re-screening. A single account without a renewable entry causes the
+    ///         entire call to revert.
+    function renewMany(address[] calldata accounts, bytes32 role, uint64 expiry) external onlyIssuer {
+        uint256 count = accounts.length;
+        for (uint256 i; i < count; ++i) {
+            _renew(accounts[i], role, expiry);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -181,6 +186,16 @@ contract CredentialRegistry is IAccessAdapter {
             revoked: false
         });
         emit Attested(account, role, uid, msg.sender, jurisdictionClass, investorClass, expiry);
+    }
+
+    /// @dev Moves the expiry of an existing, unrevoked entry and records the caller as its issuer.
+    function _renew(address account, bytes32 role, uint64 expiry) internal {
+        Attestation storage entry = _credentials[account][role];
+        if (entry.uid == bytes32(0) || entry.revoked) revert NoActiveRecord();
+        if (expiry <= block.timestamp) revert BadExpiry();
+        entry.issuer = msg.sender;
+        entry.expiry = expiry;
+        emit Renewed(account, role, entry.uid, msg.sender, expiry);
     }
 
     /// @dev Flags a live entry as revoked and emits `Revoked`, reverting if there is no live entry.
