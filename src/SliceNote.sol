@@ -35,6 +35,7 @@ contract SliceNote is ERC721, ISliceNote {
     error NotGovernance();
     error HubAlreadySet();
     error ZeroHub();
+    error InvalidRange();
 
     constructor(IPermissionRegistry permissions_, IRiskConfig riskConfig_) ERC721("Spatial Slice Note", "SPSN") {
         permissions = permissions_;
@@ -68,6 +69,15 @@ contract SliceNote is ERC721, ISliceNote {
         baseURI = uri;
         emit BaseURISet(uri);
         emit BatchMetadataUpdate(0, type(uint256).max);
+    }
+
+    /// @notice Ask wallets and marketplaces to reload metadata for slice ids `fromId` through `toId` without
+    ///         changing the base URI, for example after the off-chain renderer starts showing new loan fields.
+    ///         Only the risk config owner may call it.
+    function refreshMetadata(uint256 fromId, uint256 toId) external {
+        _onlyGovernance();
+        if (fromId > toId) revert InvalidRange();
+        emit BatchMetadataUpdate(fromId, toId);
     }
 
     /*//////////////////////////////////////////////////////////////
