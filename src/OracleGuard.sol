@@ -361,6 +361,15 @@ contract OracleGuard is IOracleGuard {
         return _feeds[collateralToken].streamAdapter != address(0);
     }
 
+    /// @notice True if pricing for the market is halted, either by the guard (by hand or by the move cap) or by
+    ///         the token's own pause source. Unlike `quote`, this never reverts on a bad feed answer, so a status
+    ///         page can show the halt even while the feed itself is broken.
+    /// @dev Reverts only for an unconfigured token.
+    function isMarketPaused(address collateralToken) external view returns (bool) {
+        FeedConfig storage cfg = _configured(collateralToken);
+        return _checkpoints[collateralToken].paused || _sourcePaused(cfg);
+    }
+
     /// @notice Complete stored setup for a token. A token that was never configured comes back as all zeroes.
     function feedConfig(address collateralToken) external view returns (FeedConfig memory) {
         return _feeds[collateralToken];

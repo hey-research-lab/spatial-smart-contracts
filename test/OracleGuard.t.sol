@@ -299,4 +299,24 @@ contract OracleGuardTest is BaseTest {
         );
         guard.verifyStreamReport(address(nvda), hex"01");
     }
+
+    function test_isMarketPausedCoversGuardAndTokenHalts() public {
+        assertFalse(guard.isMarketPaused(address(nvda)));
+
+        vm.prank(gov);
+        guard.pause(address(nvda));
+        assertTrue(guard.isMarketPaused(address(nvda)));
+        vm.prank(gov);
+        guard.resume(address(nvda));
+        assertFalse(guard.isMarketPaused(address(nvda)));
+
+        nvda.setOraclePaused(true);
+        assertTrue(guard.isMarketPaused(address(nvda)), "a halt from the token's pause source counts too");
+    }
+
+    function test_isMarketPausedRevertsForAnUnconfiguredToken() public {
+        address other = makeAddr("other");
+        vm.expectRevert(abi.encodeWithSelector(IOracleGuard.FeedNotConfigured.selector, other));
+        guard.isMarketPaused(other);
+    }
 }
