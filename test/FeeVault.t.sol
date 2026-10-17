@@ -2,6 +2,7 @@
 pragma solidity 0.8.26;
 
 import {BaseTest} from "./Base.t.sol";
+import {Vm} from "forge-std/Vm.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {FeeVault} from "../src/FeeVault.sol";
 import {MockERC20} from "../src/mocks/Mocks.sol";
@@ -52,5 +53,27 @@ contract FeeVaultTest is BaseTest {
         vm.prank(gov);
         vm.expectRevert(FeeVault.LengthMismatch.selector);
         feeVault.withdrawMany(tokens, gov, amounts);
+    }
+
+    function test_emptyPayoutsAreSkipped() public {
+        MockERC20 empty = new MockERC20("Empty", "EMP", 18);
+        IERC20[] memory tokens = new IERC20[](2);
+        tokens[0] = IERC20(address(empty));
+        tokens[1] = IERC20(address(usdg));
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = type(uint256).max;
+        amounts[1] = type(uint256).max;
+
+        vm.recordLogs();
+        vm.prank(gov);
+        feeVault.withdrawMany(tokens, gov, amounts);
+
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 withdrawals;
+        for (uint256 i; i < logs.length; ++i) {
+            if (logs[i].emitter == address(feeVault)) ++withdrawals;
+        }
+        assertEq(withdrawals, 1, "only the token with a balance should produce a Withdrawn event");
+        assertEq(usdg.balanceOf(gov), 500e6);
     }
 }

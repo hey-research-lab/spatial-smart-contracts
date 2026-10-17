@@ -57,8 +57,12 @@ contract FeeVault {
         if (msg.sender != riskConfig.owner()) revert NotGovernance();
     }
 
+    /// @dev A payout that works out to zero, typically a full-balance sweep of a token with nothing collected
+    ///      yet, is skipped without a transfer or an event. That keeps a batch from failing on tokens that
+    ///      reject zero transfers, and keeps zero-value `Withdrawn` events out of the treasury history.
     function _payout(IERC20 token, address to, uint256 amount) private {
         uint256 payout = amount == type(uint256).max ? token.balanceOf(address(this)) : amount;
+        if (payout == 0) return;
         token.safeTransfer(to, payout);
         emit Withdrawn(address(token), to, payout);
     }
