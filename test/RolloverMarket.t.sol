@@ -375,4 +375,25 @@ contract RolloverMarketTest is BaseTest {
         auction.startAuction(loanId);
         assertEq(hub.remainingCapacity(o1), 8_000e6);
     }
+
+    function test_progressBpsFollowsAcceptances() public {
+        uint256 loanId = _originateExample();
+        vm.expectRevert(RolloverMarket.NotActive.selector);
+        rollover.progressBps(loanId);
+
+        vm.warp(block.timestamp + 27 days);
+        vm.prank(borrower);
+        rollover.openRefinance(loanId);
+        vm.warp(block.timestamp + 40 minutes);
+        assertEq(rollover.progressBps(loanId), 0);
+
+        LoanTypes.LendOffer memory o1 = _offer(lender1, 10_000e6, 900, 11, 0);
+        o1.requestId = QuoteHash.rolloverKey(loanId);
+        bytes memory s1 = _sign(lender1Pk, o1);
+        vm.prank(keeper);
+        rollover.accept(loanId, o1, s1);
+
+        (uint256 total,) = rollover.target(loanId);
+        assertEq(rollover.progressBps(loanId), 10_000e6 * LoanTypes.BPS / total);
+    }
 }

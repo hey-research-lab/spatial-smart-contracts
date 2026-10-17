@@ -300,6 +300,17 @@ contract RolloverMarket is ReentrancyGuard {
         return total > rollover.accepted ? total - rollover.accepted : 0;
     }
 
+    /// @notice Share of the current target already committed, in basis points and capped at 10,000. Meant for
+    ///         progress bars, so a front end does not have to call `target` and read the rollover struct itself.
+    /// @dev Reverts if `loanId` has no running rollover. Because the target keeps growing with interest, the
+    ///      figure can dip slightly between commitments.
+    function progressBps(uint256 loanId) external view returns (uint256) {
+        Rollover storage rollover = _activeRollover(loanId);
+        (uint256 total,) = target(loanId);
+        if (total == 0 || rollover.accepted >= total) return LoanTypes.BPS;
+        return uint256(rollover.accepted) * LoanTypes.BPS / total;
+    }
+
     /// @notice Lists the funded commitments for `loanId`, oldest first. The list is empty after the rollover has
     ///         cleared, failed or been withdrawn.
     function acceptances(uint256 loanId) external view returns (Acceptance[] memory) {
