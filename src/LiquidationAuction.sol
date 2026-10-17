@@ -273,6 +273,15 @@ contract LiquidationAuction is ReentrancyGuard {
         return uint256(auction.startedAt) + auction.duration;
     }
 
+    /// @notice Seconds left until the price reaches its floor, or zero once it has. Saves front ends and keepers
+    ///         from doing the `endsAt` arithmetic against their own clock.
+    /// @dev Reverts if `loanId` has no running auction.
+    function timeRemaining(uint256 loanId) external view returns (uint256) {
+        Auction storage auction = _activeAuction(loanId);
+        uint256 end = uint256(auction.startedAt) + auction.duration;
+        return end > block.timestamp ? end - block.timestamp : 0;
+    }
+
     /// @notice Simulates `buy(loanId, collateralAmount, ...)` in the current block, returning the collateral
     ///         that would change hands, its total cost and the unit price. Useful for sizing a bid and approving
     ///         the right allowance up front.

@@ -600,4 +600,23 @@ contract LiquidationAuctionTest is BaseTest {
         (,,,,, proceedsAfter,,,) = auction.auctions(loanId);
         assertEq(proceedsAfter, proceeds, "money raised in the first round carries over after a restart");
     }
+
+    function test_timeRemainingCountsDownToTheFloor() public {
+        uint256 loanId = _originateExample();
+        vm.expectRevert(LiquidationAuction.AuctionNotActive.selector);
+        auction.timeRemaining(loanId);
+
+        vm.warp(block.timestamp + 10 days);
+        _setPrice(114_00_000_000);
+        vm.prank(keeper);
+        auction.startAuction(loanId);
+        uint256 duration = riskConfig.auctionParams().duration;
+        assertEq(auction.timeRemaining(loanId), duration);
+
+        vm.warp(block.timestamp + 10 minutes);
+        assertEq(auction.timeRemaining(loanId), duration - 10 minutes);
+
+        vm.warp(auction.endsAt(loanId) + 1);
+        assertEq(auction.timeRemaining(loanId), 0);
+    }
 }
