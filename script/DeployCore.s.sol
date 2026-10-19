@@ -130,6 +130,7 @@ contract DeployCore is Script {
         vm.serializeAddress(key, "StockFeed", address(priceFeed));
         string memory json = vm.serializeAddress(key, "Vault", address(0));
         string memory file = string.concat("deployments/", vm.toString(block.chainid), ".json");
+        vm.createDir("deployments", true);
         vm.writeJson(json, file);
         console2.log("Deployment file saved:", file);
         console2.log("RiskConfig", address(riskConfig));

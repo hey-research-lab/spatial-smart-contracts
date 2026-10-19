@@ -252,6 +252,7 @@ contract Deploy is Script {
         vm.serializeAddress(key, "StockFeed", out.stockFeed);
         string memory json = vm.serializeAddress(key, "Vault", out.vault);
         string memory file = string.concat("deployments/", vm.toString(block.chainid), ".json");
+        vm.createDir("deployments", true);
         vm.writeJson(json, file);
         console2.log("Deployment file saved:", file);
         console2.log("CreditHub", out.creditHub);
